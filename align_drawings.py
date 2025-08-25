@@ -1,13 +1,12 @@
+import argparse
+
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
 
-def load_images():
-    """Load the old and new images"""
-    old_path = "drawings/test1_old.png"
-    new_path = "drawings/test1_new.png"
-
+def load_images(old_path: str, new_path: str):
+    """Load the old and new images based on the provided image name"""
     old_img = cv2.imread(old_path)
     new_img = cv2.imread(new_path)
 
@@ -23,20 +22,20 @@ def load_images():
 
 def extract_features_sift(img_gray, margin=0):
     """Extract SIFT features for higher accuracy
-    
+
     Args:
         img_gray: Grayscale image for feature detection
         margin: Margin size in pixels to exclude from feature detection around image borders
     """
     detector = cv2.SIFT_create(nfeatures=2000)
-    
+
     # Create mask to exclude margin area if specified
     mask = None
     if margin > 0:
         h, w = img_gray.shape
         mask = np.zeros((h, w), dtype=np.uint8)
-        mask[margin:h-margin, margin:w-margin] = 255
-    
+        mask[margin : h - margin, margin : w - margin] = 255
+
     keypoints, descriptors = detector.detectAndCompute(img_gray, mask)
     return keypoints, descriptors
 
@@ -91,15 +90,15 @@ def show_overlay_images(old_img, new_img, title):
     # Create masks for non-black pixels (assuming black is close to 0)
     old_mask = np.sum(old_img, axis=2) > 30  # Pixels that are not black
     new_mask = np.sum(new_img, axis=2) > 30  # Pixels that are not black
-    
+
     # Apply green tint to black pixels in old image, keep white pixels white
     old_tinted = old_img.copy()
     old_tinted[~old_mask] = [0, 255, 0]  # Make black pixels green (BGR format)
-    
+
     # Apply red tint to black pixels in new image, keep white pixels white
     new_tinted = new_img.copy()
     new_tinted[~new_mask] = [0, 0, 255]  # Make black pixels red (BGR format)
-    
+
     # Create overlay by blending the two tinted images
     overlay = cv2.addWeighted(old_tinted, 0.5, new_tinted, 0.5, 0)
 
@@ -113,12 +112,19 @@ def show_overlay_images(old_img, new_img, title):
 
 
 def main():
-    print("Loading images...")
-    old_img, new_img, old_gray, new_gray = load_images()
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Align drawings by comparing old and new versions")
+    parser.add_argument("--old_path", help="Old image path.")
+    parser.add_argument("--new_path", help="New image path.")
+    parser.add_argument("--margin", type=float, default=0.2, help="Margin as fraction of image size.")
+    args = parser.parse_args()
+
+    # Load images
+    old_img, new_img, old_gray, new_gray = load_images(args.old_path, args.new_path)
 
     # Margin parameter to exclude features near image borders (in pixels)
     h, w = old_gray.shape
-    margin = int(min(h, w) * 0.2)
+    margin = int(min(h, w) * args.margin)
 
     print(f"\n=== Using SIFT + Ratio Test + Homography with {margin}px margin ===")
 
