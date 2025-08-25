@@ -4,6 +4,8 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
+from estimate_affine import estimate_affine_partial_2d_constrained
+
 
 def load_images(path: str):
     """Load the old and new images based on the provided image name
@@ -58,23 +60,34 @@ def match_features_ratio_test(desc1, desc2):
 
 
 def find_transformation(kp1, kp2, matches):
-    """Find Homography transformation matrix for best accuracy"""
-    if len(matches) < 4:
+    """Find a transformation matrix for transformations without shear and perspective."""
+    if len(matches) < 3:
         print(f"Not enough good matches found: {len(matches)}")
         return None, None
 
     src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
     dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
 
-    matrix, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, ransacReprojThreshold=3.0)
+    # matrix, mask = cv2.estimateAffinePartial2D(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=3.0)
+    matrix, mask = estimate_affine_partial_2d_constrained(
+        from_points=src_pts.reshape(-1, 2),
+        to_points=dst_pts.reshape(-1, 2),
+        ransacReprojThreshold=3.0,
+        maxIters=2000,
+        confidence=0.99,
+        scale_min=0.5,
+        scale_max=1.5,
+        rotation_deg_min=-15,
+        rotation_deg_max=15,
+    )
     return matrix, mask
 
 
 def apply_transformation(img, matrix, output_shape):
-    """Apply perspective transformation to image"""
+    """Apply an affine transformation to the image."""
     if matrix is None:
         return img
-    return cv2.warpPerspective(img, matrix, output_shape)
+    return cv2.warpAffine(img, matrix, output_shape)
 
 
 def show_side_by_side(old_img, new_img):
@@ -155,8 +168,8 @@ def show_overlay_images(old_img, new_img, title):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Align drawings by comparing old and new versions")
-    parser.add_argument("--old_path", help="Old image path.")
-    parser.add_argument("--new_path", help="New image path.")
+    parser.add_argument("--old_path", help="Old image path.", required=True)
+    parser.add_argument("--new_path", help="New image path.", required=True)
     parser.add_argument("--margin", type=float, default=0.2, help="Margin as fraction of image size.")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode to visualize matched features.")
     args = parser.parse_args()
@@ -171,8 +184,6 @@ def main():
     # Margin parameter to exclude features near image borders (in pixels)
     h, w = old_gray.shape
     margin = int(min(h, w) * args.margin)
-
-    print(f"\n=== Using SIFT + Ratio Test + Homography with {margin}px margin ===")
 
     print("Extracting SIFT features...")
     kp1, desc1 = extract_features_sift(old_gray, margin)
@@ -192,7 +203,7 @@ def main():
         print("\n=== DEBUG: Visualizing all good matches ===")
         visualize_matched_features(old_img, new_img, kp1, kp2, good_matches)
 
-    print("Finding Homography transformation...")
+    print("Finding transformation...")
     matrix, mask = find_transformation(kp1, kp2, good_matches)
 
     if matrix is None:
@@ -202,7 +213,7 @@ def main():
     # Debug visualization: show inlier matches after homography
     if args.debug and mask is not None:
         print("\n=== DEBUG: Visualizing inlier matches after RANSAC ===")
-        visualize_matched_features(old_img, new_img, kp1, kp2, good_matches, mask)
+        visualize_matched_features(old_img, new_img, kp1, kp2, good_matches, mask.flatten())
 
     output_shape = (new_img.shape[1], new_img.shape[0])
     transformed_img = apply_transformation(old_img, matrix, output_shape)
