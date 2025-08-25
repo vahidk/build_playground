@@ -135,7 +135,7 @@ def visualize_matched_features(old_img, new_img, kp1, kp2, matches, mask=None):
     plt.show()
 
 
-def show_overlay_images(old_img, new_img, title):
+def create_overlay_image(old_img, new_img):
     """Visualize transformation results, drawing only inlier matches"""
     # Apply color tints and create overlay
     old_tinted = old_img.copy()
@@ -155,10 +155,13 @@ def show_overlay_images(old_img, new_img, title):
 
     # Create overlay by blending the two tinted images
     overlay = cv2.addWeighted(old_tinted, 0.5, new_tinted, 0.5, 0)
+    return overlay
 
+
+def show_overlay_image(image, title):
     # Display the results
     plt.figure(figsize=(15, 12))
-    plt.imshow(cv2.cvtColor(overlay, cv2.COLOR_BGR2RGB))
+    plt.imshow(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
     plt.title("Overlay (Green=Old, Red=New) " + title)
     plt.axis("off")
     plt.tight_layout()
@@ -172,6 +175,9 @@ def main():
     parser.add_argument("--new_path", help="New image path.", required=True)
     parser.add_argument("--margin", type=float, default=0.2, help="Margin as fraction of image size.")
     parser.add_argument("--debug", action="store_true", help="Enable debug mode to visualize matched features.")
+    parser.add_argument("--show_overlay", action="store_true", help="Show overlay image after alignment.")
+    parser.add_argument("--aligned_path", help="Optional path to save the aligned old image.", default=None)
+    parser.add_argument("--overlay_path", help="Optional path to save the overlayed image.", default=None)
     args = parser.parse_args()
 
     # Load images
@@ -217,7 +223,22 @@ def main():
 
     output_shape = (new_img.shape[1], new_img.shape[0])
     transformed_img = apply_transformation(old_img, matrix, output_shape)
-    show_overlay_images(transformed_img, new_img, "after alignment")
+    
+    # Save the transformed image if output path is provided
+    if args.aligned_path:
+        cv2.imwrite(args.aligned_path, transformed_img)
+        print(f"Aligned image saved to: {args.aligned_path}")
+    
+    # Create and show overlay image
+    overlay = create_overlay_image(transformed_img, new_img)
+
+    if args.show_overlay:
+        show_overlay_image(overlay, "after alignment")
+
+    if args.overlay_path:
+        cv2.imwrite(args.overlay_path, overlay)
+        print(f"Overlay image saved to: {args.overlay_path}")
+    
 
 
 if __name__ == "__main__":

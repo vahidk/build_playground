@@ -6,5 +6,9 @@ This tool aligns two versions of the same drawing using computer vision. It dete
 ## Usage
 
 ```bash
-python align_drawings.py --old_path drawings/test1_old.png --new_path drawings/test1_new.png
+python align_drawings.py \
+    --old_path drawings/test1_old.png \
+    --new_path drawings/test1_new.png \
+    --overlay_path drawings/test1_overlay.png \
+    --show_overlay
 ```
