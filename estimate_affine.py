@@ -56,8 +56,8 @@ def _run_constrained_optimizer(
 def estimate_affine_partial_2d_constrained(
     from_points,
     to_points,
-    ransacReprojThreshold=3.0,
-    maxIters=2000,
+    ransac_reproj_threshold=3.0,
+    max_iters=2000,
     confidence=0.99,
     scale_min=None,
     scale_max=None,
@@ -71,8 +71,8 @@ def estimate_affine_partial_2d_constrained(
     Args:
         from_points (np.ndarray): Source points, shape (N, 2).
         to_points (np.ndarray): Destination points, shape (N, 2).
-        ransacReprojThreshold (float): RANSAC reprojection threshold.
-        maxIters (int): The maximum number of RANSAC iterations.
+        ransac_reproj_threshold (float): RANSAC reprojection threshold.
+        max_iters (int): The maximum number of RANSAC iterations.
         confidence (float): The confidence level for dynamically adapting iterations.
         scale_min (float, optional): The minimum allowed scale.
         scale_max (float, optional): The maximum allowed scale.
@@ -96,7 +96,7 @@ def estimate_affine_partial_2d_constrained(
 
     from_points_hom = np.hstack([from_points, np.ones((num_points, 1))])
 
-    for i in range(maxIters):
+    for i in range(max_iters):
         # 1. Randomly sample 2 points
         sample_indices = np.random.choice(num_points, 2, replace=False)
         p1, p2 = from_points[sample_indices]
@@ -135,19 +135,19 @@ def estimate_affine_partial_2d_constrained(
         # 3. Count inliers
         transformed_points = (m_candidate @ from_points_hom.T).T
         errors = np.linalg.norm(to_points - transformed_points, axis=1)
-        current_inlier_mask = errors < ransacReprojThreshold
+        current_inlier_mask = errors < ransac_reproj_threshold
         current_inlier_count = np.sum(current_inlier_mask)
 
         # 4. Update best model
         if current_inlier_count > best_inlier_count:
             best_inlier_count = current_inlier_count
             best_inlier_mask = current_inlier_mask
-            # Dynamically update maxIters
+            # Dynamically update max_iters
             inlier_ratio = current_inlier_count / num_points
             if inlier_ratio > 0:
                 new_max_iters = int(np.log(1 - confidence) / np.log(1 - inlier_ratio**2))
-                if new_max_iters < maxIters:
-                    maxIters = new_max_iters
+                if new_max_iters < max_iters:
+                    max_iters = new_max_iters
 
     # 5. Final Model Refinement
     final_matrix = None
